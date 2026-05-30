@@ -17,6 +17,7 @@ USE db_siswa;
 -- Buat tabel siswa
 CREATE TABLE siswa (
     id INT PRIMARY KEY AUTO_INCREMENT,
+    nomor_induk VARCHAR(10) UNIQUE NOT NULL,
     nama VARCHAR(100) NOT NULL,
     jurusan VARCHAR(50) NOT NULL,
     tanggal_lahir DATE NOT NULL,
@@ -24,8 +25,8 @@ CREATE TABLE siswa (
 );
 
 -- Insert data contoh (opsional)
-INSERT INTO siswa (nama, jurusan, tanggal_lahir, alamat) VALUES
-('Aditya Wahyu Permana', 'PPLG', '2010-06-22', 'Desa Brobot, Purbalingga');
+INSERT INTO siswa (nomor_induk, nama, jurusan, tanggal_lahir, alamat) VALUES
+('12345678', 'Aditya Wahyu Permana', 'PPLG', '2010-06-22', 'Desa Brobot, Purbalingga');
 """
 
 # Execute the SQL

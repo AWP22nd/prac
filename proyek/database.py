@@ -46,15 +46,27 @@ class Database:
             print(f"Error get_all_siswa: {e}")
             return []
     
-    def insert_siswa(self, nama, jurusan, tanggal_lahir, alamat):
+    def check_unique_nomor_induk(self, nomor_induk):
+        """Check if NIS is unique (available for new student)"""
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT COUNT(*) FROM siswa WHERE nomor_induk = %s", (nomor_induk,))
+            count = cursor.fetchone()[0]
+            cursor.close()
+            return count == 0
+        except Error as e:
+            print(f"Error check_unique_nomor_induk: {e}")
+            return False
+    
+    def insert_siswa(self, nomor_induk, nama, jurusan, tanggal_lahir, alamat):
         """CREATE - Menambah data siswa baru"""
         try:
             cursor = self.connection.cursor()
             query = """
-                INSERT INTO siswa (nama, jurusan, tanggal_lahir, alamat) 
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO siswa (nomor_induk, nama, jurusan, tanggal_lahir, alamat) 
+                VALUES (%s, %s, %s, %s, %s)
             """
-            cursor.execute(query, (nama, jurusan, tanggal_lahir, alamat))
+            cursor.execute(query, (nomor_induk, nama, jurusan, tanggal_lahir, alamat))
             self.connection.commit()
             cursor.close()
             return True
@@ -62,16 +74,16 @@ class Database:
             print(f"Error insert_siswa: {e}")
             return False
     
-    def update_siswa(self, id, nama, jurusan, tanggal_lahir, alamat):
+    def update_siswa(self, id, nomor_induk, nama, jurusan, tanggal_lahir, alamat):
         """UPDATE - Update data siswa"""
         try:
             cursor = self.connection.cursor()
             query = """
                 UPDATE siswa 
-                SET nama=%s, jurusan=%s, tanggal_lahir=%s, alamat=%s 
+                SET nomor_induk=%s, nama=%s, jurusan=%s, tanggal_lahir=%s, alamat=%s 
                 WHERE id=%s
             """
-            cursor.execute(query, (nama, jurusan, tanggal_lahir, alamat, id))
+            cursor.execute(query, (nomor_induk, nama, jurusan, tanggal_lahir, alamat, id))
             self.connection.commit()
             rowcount = cursor.rowcount
             cursor.close()

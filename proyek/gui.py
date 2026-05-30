@@ -11,13 +11,14 @@ class siswaGUI(QMainWindow):
         super().__init__()
         self.db = Database()
         self.current_edit_id = None
+        self.current_nomor_induk = None
         self.initUI()
         self.db.connect()
         self.load_data()
     
     def initUI(self):
         """Inisialisasi tampilan GUI"""
-        self.setWindowTitle('Manajemen Data siswa')
+        self.setWindowTitle('Manajemen Data Siswa')
         self.setGeometry(100, 100, 1000, 700)
         
         # Widget utama
@@ -29,6 +30,15 @@ class siswaGUI(QMainWindow):
         
         # Form input
         form_layout = QHBoxLayout()
+        
+        # NIS
+        self.lbl_nomor_induk = QLabel('NIS:')
+        self.lbl_nomor_induk.setFont(QFont('Arial', 10, QFont.Bold))
+        form_layout.addWidget(self.lbl_nomor_induk)
+        self.txt_nomor_induk = QLineEdit()
+        self.txt_nomor_induk.setPlaceholderText('Masukkan NIS unik (mis: 12345678)...')
+        self.txt_nomor_induk.setMinimumWidth(120)
+        form_layout.addWidget(self.txt_nomor_induk)
         
         # Nama
         self.lbl_nama = QLabel('Nama:')
@@ -100,14 +110,15 @@ class siswaGUI(QMainWindow):
         
         # Tabel data
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(['ID', 'Nama', 'Jurusan', 'Tgl Lahir', 'Alamat'])
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(['ID', 'NIS', 'Nama', 'Jurusan', 'Tgl Lahir', 'Alamat'])
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # NIS
+        header.setSectionResizeMode(2, QHeaderView.Stretch)  # Nama
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Jurusan
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Tgl Lahir
+        header.setSectionResizeMode(5, QHeaderView.Stretch)  # Alamat
         
         self.table.itemSelectionChanged.connect(self.on_table_selection_changed)
         main_layout.addWidget(self.table)
@@ -116,10 +127,22 @@ class siswaGUI(QMainWindow):
     
     def validate_input(self):
         """Validasi input form"""
+        nomor_induk = self.txt_nomor_induk.text().strip()
         nama = self.txt_nama.text().strip()
         jurusan = self.combo_jurusan.currentText()
         tanggal = self.date_tgl.date().toString('yyyy-MM-dd')
         alamat = self.txt_alamat.text().strip()
+        
+        if not nomor_induk:
+            QMessageBox.warning(self, 'Peringatan', 'NIS tidak boleh kosong!')
+            self.txt_nomor_induk.setFocus()
+            return False
+        
+        nomor_induk_unique = self.db.check_unique_nomor_induk(nomor_induk)
+        if not nomor_induk_unique and nomor_induk != getattr(self, 'current_nomor_induk', ''):
+            QMessageBox.warning(self, 'Peringatan', 'NIS sudah digunakan! Gunakan NIS lain.')
+            self.txt_nomor_induk.setFocus()
+            return False
         
         if not nama:
             QMessageBox.warning(self, 'Peringatan', 'Nama tidak boleh kosong!')
@@ -145,8 +168,8 @@ class siswaGUI(QMainWindow):
         for row_idx, row_data in enumerate(data):
             for col_idx, value in enumerate(row_data):
                 item = QTableWidgetItem(str(value))
-                if col_idx == 0:  # ID column
-                    item.setFlags(item.flags() & ~Qt.ItemIsEditable) # pyright: ignore[reportUndefinedVariable]
+                if col_idx in (0, 1):  # ID and NIS columns non-editable
+                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 self.table.setItem(row_idx, col_idx, item)
         
         self.clear_form()
@@ -158,12 +181,13 @@ class siswaGUI(QMainWindow):
         if not self.validate_input():
             return
         
+        nomor_induk = self.txt_nomor_induk.text().strip()
         nama = self.txt_nama.text().strip()
         jurusan = self.combo_jurusan.currentText()
         tanggal = self.date_tgl.date().toString('yyyy-MM-dd')
         alamat = self.txt_alamat.text().strip()
         
-        if self.db.insert_siswa(nama, jurusan, tanggal, alamat):
+        if self.db.insert_siswa(nomor_induk, nama, jurusan, tanggal, alamat):
             QMessageBox.information(self, 'Sukses', 'Data siswa berhasil ditambahkan!')
             self.load_data()
         else:
@@ -174,12 +198,13 @@ class siswaGUI(QMainWindow):
         if not self.validate_input() or not self.current_edit_id:
             return
         
+        nomor_induk = self.txt_nomor_induk.text().strip()
         nama = self.txt_nama.text().strip()
         jurusan = self.combo_jurusan.currentText()
         tanggal = self.date_tgl.date().toString('yyyy-MM-dd')
         alamat = self.txt_alamat.text().strip()
         
-        if self.db.update_siswa(self.current_edit_id, nama, jurusan, tanggal, alamat):
+        if self.db.update_siswa(self.current_edit_id, nomor_induk, nama, jurusan, tanggal, alamat):
             QMessageBox.information(self, 'Sukses', 'Data siswa berhasil diupdate!')
             self.load_data()
         else:
@@ -204,20 +229,24 @@ class siswaGUI(QMainWindow):
         if selected:
             row = selected[0].row()
             self.current_edit_id = int(self.table.item(row, 0).text())
-            self.txt_nama.setText(self.table.item(row, 1).text())
-            self.combo_jurusan.setCurrentText(self.table.item(row, 2).text())
-            self.date_tgl.setDate(QDate.fromString(self.table.item(row, 3).text(), 'yyyy-MM-dd'))
-            self.txt_alamat.setText(self.table.item(row, 4).text())
+            self.txt_nomor_induk.setText(self.table.item(row, 1).text())
+            self.current_nomor_induk = self.table.item(row, 1).text()
+            self.txt_nama.setText(self.table.item(row, 2).text())
+            self.combo_jurusan.setCurrentText(self.table.item(row, 3).text())
+            self.date_tgl.setDate(QDate.fromString(self.table.item(row, 4).text(), 'yyyy-MM-dd'))
+            self.txt_alamat.setText(self.table.item(row, 5).text())
             self.btn_edit.setEnabled(True)
             self.btn_hapus.setEnabled(True)
     
     def clear_form(self):
         """Clear form input"""
+        self.txt_nomor_induk.clear()
         self.txt_nama.clear()
         self.combo_jurusan.setCurrentIndex(0)
         self.date_tgl.setDate(QDate.currentDate())
         self.txt_alamat.clear()
         self.current_edit_id = None
+        self.current_nis = None
     
     def closeEvent(self, event):
         """Event saat aplikasi ditutup"""
